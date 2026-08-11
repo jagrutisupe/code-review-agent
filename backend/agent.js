@@ -33,7 +33,7 @@ const tools = [{
         type: "function",
         function: {
             name: "search_codebase",
-            description: "Search the codebase for relevant code using a natural language query. Use this whenever you need to see actual code to answer a question.",
+            description: "Search a specific pre-indexed local codebase (not arbitrary GitHub repos) using a natural language query about code, bugs, or functions.",
             parameters: {
                 type: "object",
                 properties: {
@@ -47,7 +47,7 @@ const tools = [{
         type: "function",
         function: {
             name: "get_pr_diff",
-            description: "Fetch the code diff of a GitHub pull request to review the changes.",
+            description: "Fetch and review the diff of one specific, already-numbered GitHub pull request. Requires an exact owner, repo, and PR number — do not use this for general questions about a repository.",
             parameters: {
                 type: "object",
                 properties: {
@@ -63,7 +63,7 @@ const tools = [{
 
 async function runAgent(userQuestion) {
     const messages = [
-        { role: "system", content: "You are a helpful coding assistant with access to a codebase search tool. Use it whenever you need to see code to answer accurately." },
+        { role: "system", content: "You are a code review assistant. You have exactly two tools: (1) search_codebase, which searches a specific pre-indexed local codebase — use it only for questions about that codebase's code, bugs, or functions. (2) get_pr_diff, which fetches a specific pull request's diff by owner/repo/PR number — use it only when the user explicitly asks to review a pull request and gives (or clearly implies) a PR number. If a question asks about a GitHub repository in general (not a specific PR, not the indexed codebase), explain that you can only review specific PRs or search the indexed codebase, and ask them to specify one." },
         { role: "user", content: userQuestion }
     ];
 
