@@ -67,11 +67,17 @@ async function runAgent(userQuestion) {
         { role: "user", content: userQuestion }
     ];
 
-    const response = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: messages,
-        tools: tools
-    });
+    let response;
+    try {
+        response = await groq.chat.completions.create({
+            model: "llama-3.3-70b-versatile",
+            messages: messages,
+            tools: tools
+        });
+    } catch (err) {
+        console.error("Groq tool-call error:", err.message);
+        return "I had trouble understanding how to answer that — could you rephrase your question? For example: 'Review pull request #1 from octocat/Hello-World' or 'Is there code that might crash if a user isn't found?'";
+    }
 
     const message = response.choices[0].message;
 
