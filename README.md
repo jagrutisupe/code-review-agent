@@ -1,6 +1,6 @@
 # AI Code Review Agent
 
-An AI agent that reviews code and GitHub pull requests using retrieval-augmented generation (RAG) and multi-tool reasoning. Ask it a question in plain English — it decides on its own whether to search your codebase or fetch a live GitHub PR, then gives a grounded, specific answer.
+An AI agent that reviews code and GitHub pull requests using retrieval-augmented generation (RAG) and multi-tool reasoning. Ask it a question in plain English — it decides on its own whether to search an indexed codebase or fetch a live GitHub PR, then gives a grounded, specific answer.
 
 **Live demo:** https://code-review-agent-navy.vercel.app
 **Backend API:** https://code-review-agent-backend-w578.onrender.com
@@ -13,6 +13,7 @@ An AI agent that reviews code and GitHub pull requests using retrieval-augmented
 - **Real GitHub PR review:** the agent can fetch a live pull request diff from any public GitHub repo and review the actual changes.
 - **Agentic tool use:** the LLM decides for itself which tool to call (codebase search vs. GitHub fetch) based on the question — this isn't a hardcoded pipeline, it's a real reasoning loop.
 - **Structured, readable output:** responses are rendered as clean, formatted markdown in the UI.
+- **Graceful failure handling:** the underlying model occasionally malforms a function call; the backend catches this and returns a clear message instead of crashing.
 
 ## Architecture
 
@@ -36,9 +37,34 @@ React (Vercel) → Express API (Render) → Agent loop (Groq/Llama 3.3)
 | External data | GitHub REST API |
 | Hosting | Vercel (frontend), Render (backend) |
 
+## How to ask it questions
+
+The agent has exactly two capabilities, so the most useful questions map clearly to one of them. It does **not** browse arbitrary GitHub repositories or answer general "what's in this repo?" questions — it will say so and ask for a more specific request instead of guessing.
+
+**Codebase search** (searches the embedded files — currently the agent's own source, `agent.js` and `server.js`, plus two sample files):
+- "Is there any code that might crash if a user isn't found?"
+- "Is there a security issue with how passwords are handled?"
+- "Is there a hardcoded secret anywhere in the code?"
+- "Does the agent handle it gracefully if the Groq API fails?"
+- "Is there a null check before accessing tool_calls?"
+
+**GitHub PR review** (needs a real, existing PR — owner, repo, and PR number):
+- "Review pull request #1 from octocat/Hello-World"
+- "Review PR #3 from facebook/react and tell me if there are issues"
+
+**What it will decline, and why:** general questions about a whole repository, or about code that was never embedded. This scope was deliberately tightened after the model was observed making repeated failed tool calls in response to vague prompts — explicit boundaries proved more reliable than trying to make it guess at intent.
+
 ## Why this project
 
 Most student "AI projects" stop at a single-shot chatbot wrapped around an API call. This one is a genuine agent: it decides its own next action, retrieves real data from two different sources, and reasons over the results — the same pattern used in production tools like Cursor, GitHub Copilot Workspace, and AI code review bots.
+
+## Engineering challenges & fixes
+
+- **Environment variables on deployment:** `.env` is intentionally gitignored, so Render and Vercel needed the same keys added manually as platform environment variables — easy to miss, worth double-checking via deploy logs.
+- **Embedding model deprecation:** the originally used embedding model was retired mid-project; fixed by switching to `gemini-embedding-001` with an explicit output dimensionality to match the existing vector column.
+- **Frontend pointing at localhost:** after deploying the backend, the deployed frontend still called `localhost:3001` until the API base URL was updated in code and redeployed.
+- **Unreliable tool-call generation:** the free-tier LLM occasionally emits a malformed function call and Groq rejects it with a 400 error. Fixed with a try/catch around the tool-calling request that returns a clear fallback message instead of a server crash.
+- **Tool scope confusion:** vague prompts caused the model to call the wrong tool repeatedly. Tightening the system prompt and each tool's description to state its exact scope fixed this — the agent now explains what it can do rather than guessing.
 
 ## Running it locally
 
@@ -63,3 +89,4 @@ npm run dev
 - Support private repos with OAuth
 - Add a third tool for running the test suite and reporting failures
 - Stream responses token-by-token instead of waiting for the full answer
+- Containerize the backend and add a CI/CD pipeline with automated tests
